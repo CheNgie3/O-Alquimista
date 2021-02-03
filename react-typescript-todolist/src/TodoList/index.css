@@ -1,0 +1,16 @@
+.todoitem{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin: 8px;
+}
+
+.item-text{
+  font-size: 14px;
+}
+
+.item-text-did{
+    font-size: 14px;
+    color:gray;
+    text-decoration:line-through; 
+  }
