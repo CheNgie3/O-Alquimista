@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <button onclick="requestFs()">创建文件</button>
+    <button onclick="createSocket()">创建socket连接</button>
+    <ul id="log"></ul>
+<script>
+function requestFs(){
+  fetch('http://localhost:3000/ucfCreate')
+  .then(response => {
+      var reader = response.body.getReader();
+      reader.read().then(function processResult(result) {
+        if (result.done) {
+          LogFactory("Fetch complete")
+          return;
+        }
+        LogFactory(Utf8ArrayToStr(result.value))
+        // setTimeout(() => {
+          reader.read().then(processResult);
+        // }, 500); 
+      });
+  })
+}
+function createSocket(){
+  var ws = new WebSocket("ws://localhost:3000");
+    ws.onopen = function (e) {
+      console.log('客户端（client）：与服务器的连接已打开')
+      ws.send('客户端（client）：与服务器的连接已打开');
+    }
+    ws.onmessage = function (e) {
+      LogFactory(e)
+    }
+}
+function LogFactory(content){
+  const logDom=document.getElementById("log");
+  const li= document.createElement("li")
+  li.innerHTML= content;
+  logDom.appendChild(li)
+}
+function Uint8ArrayToString(fileData){
+  var dataString = "";
+  for (var i = 0; i < fileData.length; i++) {
+    dataString += String.fromCharCode(fileData[i]);
+  }
+  return dataString
+}
+function Utf8ArrayToStr(array) {
+    var out, i, len, c;
+    var char2, char3;
+    out = "";
+    len = array.length;
+    i = 0;
+    while(i < len) {
+    c = array[i++];
+    switch(c >> 4)
+    { 
+      case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+        // 0xxxxxxx
+        out += String.fromCharCode(c);
+        break;
+      case 12: case 13:
+        // 110x xxxx   10xx xxxx
+        char2 = array[i++];
+        out += String.fromCharCode(((c & 0x1F) << 6) | (char2 & 0x3F));
+        break;
+      case 14:
+        // 1110 xxxx  10xx xxxx  10xx xxxx
+        char2 = array[i++];
+        char3 = array[i++];
+        out += String.fromCharCode(((c & 0x0F) << 12) |
+                       ((char2 & 0x3F) << 6) |
+                       ((char3 & 0x3F) << 0));
+        break;
+    }
+    } 
+    return out;
+}
+ 
+</script>
+</body>
+</html>
