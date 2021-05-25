@@ -1,0 +1,20 @@
+{
+  "name": "cachehttp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc --watch",
+    "start": "node ./lib/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^14.14.35",
+    "mime": "^2.5.2"
+  },
+  "devDependencies": {
+    "@types/mime": "^2.0.3"
+  }
+}
