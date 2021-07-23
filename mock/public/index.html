@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="http://mockjs.com/dist/mock.js"></script>
+    <title>Document</title>
+  </head>
+  <body>
+    <button onclick="onrequest()">发送请求getInfo</button>
+    <script type="text/javascript">
+      //方法一：mock.js在请求之前拦截，返回mock数据
+      // Mock.mock(new RegExp("/getInfo"), "get", {
+      //   user: {
+      //     name: "Amy",
+      //     age: 18,
+      //   },
+      // });
+
+      function onrequest() {
+        axios({
+          headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+          },
+          method: "get",
+          url: "http://localhost:8009/getInfo",
+        })
+          .then(function (response) {
+            console.log("info", response);
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+      }
+    </script>
+  </body>
+</html>
