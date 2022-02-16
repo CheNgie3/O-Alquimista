@@ -1,19 +1,20 @@
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-	typeof define === 'function' && define.amd ? define(factory) :
-	(global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.demo = factory());
-}(this, (function () { 'use strict';
+(function () {
+  'use strict';
 
-	const prefix = 'prefix';
+  // import prefix from './prefix';
+  // import suffix from './suffix';
+  // import {bind} from './utils/index'
 
-	var prefix$1 = str => `${prefix} | ${str}`;
+  // export default str => suffix(prefix(str)); 
 
-	const suffix = 'suffix';
-	console.log(123);
-	var suffix$1 = str => `${str} | ${suffix}`;
 
-	var index = str => suffix$1(prefix$1(str));
+  console.log(111);
 
-	return index;
+  function devide(x,y){
+    console.log(1);
+    return x/y;  
+  }
+  window.a=devide(5,6);
+  a;
 
-})));
+}());

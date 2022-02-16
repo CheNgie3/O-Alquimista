@@ -1,0 +1,229 @@
+<script>
+  //promise要点
+
+  // 1. 构造器传入的函数executor立即执行，参数为 resolve 和 reject 。 new Promise(function(resolve, reject) {}
+  // 3. 三个状态pending（进行中）、fulfilled（已成功）和rejected（已失败）
+  // 2. 实现 resolve 和 reject方法：晚于本轮循环的同步任务，改变状态，执行回调。
+  // 5. 如果 executor 本身就是异步的( 保证了 then 可以注册进来 )，那么没必要在内部进行异步处理
+  // 6. 实现 then 链, 返回新的Promise，接受两个回调函数，受上一次then返回值的影响返回的一个新的Promise实例
+  // 7. 实现 catch => .then(null, onRejected)
+  // 8. 实现静态方法 Promise.resolve Promise.reject Promise.all Promise.race
+
+  //实现异步链式then调用
+  const PENDING = 'PENDING';
+  const FULFILLED = 'FULFILLED';
+  const REJECTED = 'REJECTED';
+  function MyPromise(executor) {
+    this._fulfilledQueues = [];
+    this._rejectedQueues = [];
+    this._value = undefined;
+    this._status = PENDING;
+    const changeStatus = (status, value) => {
+      if (this._status !== PENDING) {
+        //状态一旦改变，不可再修改
+        return;
+      }
+      this._value = value;
+      this._status = status;
+      const queues=this[status === FULFILLED ? '_fulfilledQueues' : '_rejectedQueues'];
+      while (cb = queues.shift()) {
+        cb(value);
+      }
+    };
+
+    const resolve = (result) => {
+      //箭头函数，this指向当前上下文，若为普通函数调用时需bind
+      if (this._fulfilledQueues.length) {
+        // 如果 executor 本身就是异步的，那么直接执行队列中的任务
+        changeStatus(FULFILLED, result);
+        return;
+      } else {
+        setTimeout(() => {
+          //立即 resolved 的 Promise 是在本轮事件循环的末尾执行，总是晚于本轮循环的同步任务。
+          //(不过这一步是将run函数加入宏任务队列, 真正的promise的then方法是加入微任务队列)
+          changeStatus(FULFILLED, result);
+        });
+      }
+    };
+    const reject = (reason) => {
+      if (this._rejectedQueues.length) {
+        changeStatus(REJECTED, reason);
+        return;
+      } else {
+        setTimeout(() => {
+          changeStatus(REJECTED, reason);
+        });
+      }
+    };
+
+    try {
+      executor(resolve, reject);
+    } catch (e) {
+      reject(e); //Promise中有throw的话，就相当于执行了reject。
+    }
+  }
+
+  //（Promise/A+规范）then必须返回一个承诺
+  //如果onFulfilled或onRejected返回值x，则运行承诺解析程序[[Resolve]](promise2, x)。
+  //如果onFulfilled或onRejected抛出异常e，则promise2必须以拒绝e为理由。
+  //如果onFulfilled不是函数并且promise1被满足，则promise2必须用与 相同的值来满足promise1。
+  //如果onRejected不是函数并被promise1拒绝，则promise2必须以与 相同的原因被拒绝promise1。
+
+  MyPromise.prototype.then = function (onFulfilled, onRejected) {
+    // 参数处理，若传入的 onFulfilled, onRejected 不是函数，则包装
+    if (typeof onFulfilled !== 'function') {
+      onFulfilled = (result) => {
+        return result;
+      };
+    }
+    if (typeof onRejected !== 'function') {
+      onRejected = (reason) => {
+        throw new Error(reason);
+      };
+    }
+
+    const { _status, _value } = this;
+    return new MyPromise((resolve, reject) => {
+      const fulfilled = (value) => {
+        try {
+          const res = onFulfilled(value);
+          res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
+          //res.then(resolve, reject) 为什么？
+          //（Promise/A+规范）如果该值是thenable(即，带有then方法的对象)，返回的Promise对象的最终状态由then方法执行决定
+          //then返回的Promise2的状态基于上一个Promise1的状态，所以将Promise2的resolve作为Promise1的成功回调参数，当Promise1成功Promise2的状态也变为成功。
+        } catch (e) {
+          reject(e);
+        }
+      };
+      const rejected = (value) => {
+        try {
+          const res = onRejected(value);
+          res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      switch (_status) {
+        case PENDING:
+          this._fulfilledQueues.push(fulfilled);
+          this._rejectedQueues.push(rejected);
+          break;
+        case FULFILLED:
+          fulfilled(_value);
+          break;
+        case REJECTED:
+          rejected(_value);
+          break;
+      }
+    });
+  };
+  MyPromise.prototype.catch = function (onRejected) {
+    return this.then(null, onRejected);
+  };
+
+  MyPromise.resolve = function (result) {
+    return new MyPromise((resolve) => {
+      resolve(result);
+    });
+  };
+  MyPromise.reject = function (reason) {
+    return new MyPromise(resolve, (reject) => {
+      reject(reason);
+    });
+  };
+
+  //只有所有状态都变成fulfilled，返回Promise的状态才会变成fulfilled;有一个被rejected，p的状态就变成rejected
+  MyPromise.all = function (promises) {
+    return new MyPromise((resolve, reject) => {
+      let count = 0,
+        length = promises.length,
+        result = new Array(length - 1);
+
+      function handler(index, res) {
+        result[index] = res;
+        count++;
+        if (count === length) resolve(result);
+      }
+
+      for (let i = 0; i < length; i++) {
+        let p = promises[i];
+        if (!(p instanceof MyPromise)) {
+          p = MyPromise.resolve(p);
+        }
+        p.then((res) => {
+          handler(i, res);
+        }, reject);
+      }
+    });
+  };
+
+  //有一个实例率先改变状态，p的状态就跟着改变。
+  MyPromise.race = function (promises) {
+    return new MyPromise((resolve, reject) => {
+      let length = promises.length;
+      for (let i = 0; i < length; i++) {
+        let p = promises[i];
+        if (!(p instanceof MyPromise)) {
+          p = MyPromise.resolve(p);
+        }
+        p.then(resolve, reject);
+      }
+    });
+  };
+
+  //测试
+
+  let p1 = new MyPromise((resolve, reject) => {
+    setTimeout(() => resolve(1), 1000);
+  });
+
+  let p2 = new MyPromise((resolve, reject) => {
+    setTimeout(() => {
+      console.log('setTimeout-2');
+      resolve(2);
+    }, 2000);
+  });
+
+  let p3 = new MyPromise((resolve, reject) => {
+    setTimeout(() => resolve(3), 3000);
+  });
+
+  let p4 = new MyPromise((resolve, reject) => {
+    setTimeout(() => reject(4), 0);
+  });
+
+  p1.then((res) => {
+    console.log('p1', res);
+    return p2;
+  })
+    .then((res) => {
+      console.log('p2', res);
+      return p3;
+    })
+    .then((res) => {
+      console.log('p3', res);
+    })
+    .catch((e) => {
+      console.log('catch', e);
+    });
+
+    MyPromise.all([p1, 'two', p3]).then(
+      (result) => {
+        console.log('all成功', result);
+      },
+      (reason) => {
+        console.log('all失败', reason);
+      }
+    );
+
+    MyPromise.race(['one', p2, p3]).then(
+      (result) => {
+        console.log('race成功', result);
+      },
+      (reason) => {
+        console.log('race失败', reason);
+      }
+    );
+  
+</script>

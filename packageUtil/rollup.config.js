@@ -4,9 +4,9 @@ export default {
     output: {
       file: 'dist/rollup.bundle.js',
       name: 'demo',
-      format: 'umd'
+      format: 'iife'
     },
     plugins: [
-      uglify(), //压缩代码
+      // uglify(), //压缩代码
     ]
   };

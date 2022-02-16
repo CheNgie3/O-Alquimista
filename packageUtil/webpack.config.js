@@ -10,7 +10,7 @@ module.exports = {
       libraryTarget: 'umd'
     },
     plugins:[
-     new AnalyzePlugin({filename:"./index.html"}),
-     new RemoveLogsPlugin(),
+    //  new AnalyzePlugin({filename:"./index.html"}),
+    //  new RemoveLogsPlugin(),
     ]
   };
