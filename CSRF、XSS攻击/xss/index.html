@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h1>反射型 XSS: </h1>
+    <!--
+     http://localhost:3000/?xss=<script>alert(document.cookie)</script>
+    -->
+    <div><%= title %> xss攻击： <%- xss %> </div>
+
+    <h1>DOM型XSS: </h1>
+    <input type="text" id="input">
+    <button id="btn">Submit</button>
+    <div id="div"></div>
+    <script>
+        const input = document.getElementById('input');
+        const btn = document.getElementById('btn');
+        const div = document.getElementById('div');
+
+        let val;
+
+        input.addEventListener('change', (e) => {
+            val = e.target.value;
+        }, false);
+
+        // 输入  '' onclick=alert(/xss/)  即可
+        btn.addEventListener('click', () => {
+            div.innerHTML = `<a href=${val}>testLink</a>`
+        }, false);
+    </script>
+</body>
+
+</html>
