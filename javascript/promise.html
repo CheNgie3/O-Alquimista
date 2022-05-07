@@ -3,7 +3,7 @@
 
   // 1. 构造器传入的函数executor立即执行，参数为 resolve 和 reject 。 new Promise(function(resolve, reject) {}
   // 3. 三个状态pending（进行中）、fulfilled（已成功）和rejected（已失败）
-  // 2. 实现 resolve 和 reject方法：晚于本轮循环的同步任务，改变状态，执行回调。
+  // 2. 实现 resolve 和 reject方法：改变状态，执行回调。
   // 5. 如果 executor 本身就是异步的( 保证了 then 可以注册进来 )，那么没必要在内部进行异步处理
   // 6. 实现 then 链, 返回新的Promise，接受两个回调函数，受上一次then返回值的影响返回的一个新的Promise实例
   // 7. 实现 catch => .then(null, onRejected)
@@ -32,28 +32,10 @@
     };
 
     const resolve = (result) => {
-      //箭头函数，this指向当前上下文，若为普通函数调用时需bind
-      if (this._fulfilledQueues.length) {
-        // 如果 executor 本身就是异步的，那么直接执行队列中的任务
         changeStatus(FULFILLED, result);
-        return;
-      } else {
-        setTimeout(() => {
-          //立即 resolved 的 Promise 是在本轮事件循环的末尾执行，总是晚于本轮循环的同步任务。
-          //(不过这一步是将run函数加入宏任务队列, 真正的promise的then方法是加入微任务队列)
-          changeStatus(FULFILLED, result);
-        });
-      }
     };
     const reject = (reason) => {
-      if (this._rejectedQueues.length) {
         changeStatus(REJECTED, reason);
-        return;
-      } else {
-        setTimeout(() => {
-          changeStatus(REJECTED, reason);
-        });
-      }
     };
 
     try {
@@ -81,27 +63,30 @@
         throw new Error(reason);
       };
     }
-
     const { _status, _value } = this;
     return new MyPromise((resolve, reject) => {
       const fulfilled = (value) => {
-        try {
-          const res = onFulfilled(value);
-          res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
-          //res.then(resolve, reject) 为什么？
-          //（Promise/A+规范）如果该值是thenable(即，带有then方法的对象)，返回的Promise对象的最终状态由then方法执行决定
-          //then返回的Promise2的状态基于上一个Promise1的状态，所以将Promise2的resolve作为Promise1的成功回调参数，当Promise1成功Promise2的状态也变为成功。
-        } catch (e) {
-          reject(e);
-        }
+        setTimeout(() => { //对回调异步处理，这里使用setTimeout实际是加入微任务队列，queueMicrotask
+          try {
+            const res = onFulfilled(value);
+            res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
+            //res.then(resolve, reject) 为什么？
+            //（Promise/A+规范）如果该值是thenable(即，带有then方法的对象)，返回的Promise对象的最终状态由then方法执行决定
+            //then返回的Promise2的状态基于上一个Promise1的状态，所以将Promise2的resolve作为Promise1的成功回调参数，当Promise1成功Promise2的状态也变为成功。
+          } catch (e) {
+            reject(e);
+          }
+        },0)
       };
       const rejected = (value) => {
-        try {
-          const res = onRejected(value);
-          res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
-        } catch (e) {
-          reject(e);
-        }
+        setTimeout(() => {
+          try {
+            const res = onRejected(value);
+            res instanceof MyPromise ? res.then(resolve, reject) : resolve(res);
+          } catch (e) {
+            reject(e);
+          }
+        },0)
       };
 
       switch (_status) {
@@ -174,56 +159,72 @@
 
   //测试
 
-  let p1 = new MyPromise((resolve, reject) => {
-    setTimeout(() => resolve(1), 1000);
-  });
+// new MyPromise(function(resolve){
+//   resolve(5)
+//   MyPromise.resolve(4).then((data)=>{console.log(data)})
+// }).then(function(data){
+//   console.log(data)
+// })
+// let p1 = new MyPromise((resolve, reject) => {
+//     resolve(1);
+// });
+// let p2 = new MyPromise((resolve, reject) => {
+//   setTimeout(() => {
+//     console.log('setTimeout-2');
+//     resolve(2);
+//   }, 2000);
+// });
 
-  let p2 = new MyPromise((resolve, reject) => {
-    setTimeout(() => {
-      console.log('setTimeout-2');
-      resolve(2);
-    }, 2000);
-  });
+// p1.then((res) => {
+//   console.log('p1', res);
+//   return p2;
+// })
+// .then((res) => {
+//   console.log('p2', res);
+//   return p3;
+// })
+// console.log("hi")
 
-  let p3 = new MyPromise((resolve, reject) => {
-    setTimeout(() => resolve(3), 3000);
-  });
+  // let p3 = new MyPromise((resolve, reject) => {
+  //   setTimeout(() => resolve(3), 3000);
+  // });
 
-  let p4 = new MyPromise((resolve, reject) => {
-    setTimeout(() => reject(4), 0);
-  });
+  // let p4 = new MyPromise((resolve, reject) => {
+  //   setTimeout(() => reject(4), 0);
+  // });
 
-  p1.then((res) => {
-    console.log('p1', res);
-    return p2;
-  })
-    .then((res) => {
-      console.log('p2', res);
-      return p3;
-    })
-    .then((res) => {
-      console.log('p3', res);
-    })
-    .catch((e) => {
-      console.log('catch', e);
-    });
+  // p1.then((res) => {
+  //   console.log('p1', res);
+  //   return p2;
+  // })
+  //   .then((res) => {
+  //     console.log('p2', res);
+  //     return p3;
+  //   })
+  //   console.log("hi")
+  //   .then((res) => {
+  //     console.log('p3', res);
+  //   })
+  //   .catch((e) => {
+  //     console.log('catch', e);
+  //   });
 
-    MyPromise.all([p1, 'two', p3]).then(
-      (result) => {
-        console.log('all成功', result);
-      },
-      (reason) => {
-        console.log('all失败', reason);
-      }
-    );
+  //   MyPromise.all([p1, 'two', p3]).then(
+  //     (result) => {
+  //       console.log('all成功', result);
+  //     },
+  //     (reason) => {
+  //       console.log('all失败', reason);
+  //     }
+  //   );
 
-    MyPromise.race(['one', p2, p3]).then(
-      (result) => {
-        console.log('race成功', result);
-      },
-      (reason) => {
-        console.log('race失败', reason);
-      }
-    );
+  //   MyPromise.race(['one', p2, p3]).then(
+  //     (result) => {
+  //       console.log('race成功', result);
+  //     },
+  //     (reason) => {
+  //       console.log('race失败', reason);
+  //     }
+  //   );
   
 </script>
